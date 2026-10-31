@@ -8,11 +8,13 @@ import {
   LayoutDashboard,
   ReceiptText,
   TicketPercent,
+  UserCog,
   WalletCards,
 } from 'lucide-react'
 
 export const adminNavItems = [
   { label: 'Dashboard', to: '/admin/dashboard', icon: LayoutDashboard },
+  { label: 'Staff', to: '/admin/staff', icon: UserCog },
   { label: 'Products', to: '/admin/products', icon: Boxes },
   { label: 'Plans', to: '/admin/plans', icon: BriefcaseBusiness },
   { label: 'Taxes', to: '/admin/taxes', icon: ReceiptText },

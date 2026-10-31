@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import { Bell, ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 import { SidebarNav } from '../components/SidebarNav'
+import { useAuth } from '../context/AuthContext'
 import { adminNavItems } from '../lib/navigation'
 
 export function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false)
+  const { profile, signOut } = useAuth()
+
+  const logout = async () => {
+    await signOut()
+    window.location.assign('/login')
+  }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,191,163,0.15),transparent_30%),linear-gradient(180deg,#f7f5ff_0%,#f4f7ff_100%)] text-slate-900">
@@ -25,7 +32,7 @@ export function AdminLayout() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-900">Brightloop</p>
                   <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">
-                    Admin
+                    {profile?.role === 'admin' ? 'Admin' : 'Staff'}
                   </p>
                 </div>
               ) : null}
@@ -84,14 +91,22 @@ export function AdminLayout() {
                 </button>
                 <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 pr-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-500 text-xs font-bold text-white">
-                    AK
+                    {profile?.first_name?.[0] || 'A'}{profile?.last_name?.[0] || 'K'}
                   </div>
                   <div className="hidden text-left sm:block">
-                    <p className="text-sm font-semibold text-slate-900">Alicia Kim</p>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Ops lead</p>
+                    <p className="text-sm font-semibold text-slate-900">{profile?.first_name || 'Alicia'} {profile?.last_name || 'Kim'}</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">{profile?.role || 'staff'}</p>
                   </div>
                   <ChevronDown className="h-4 w-4 text-slate-400" />
                 </div>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
               </div>
             </div>
           </header>

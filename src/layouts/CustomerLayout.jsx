@@ -1,8 +1,16 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { ArrowRight, CreditCard, FileText } from 'lucide-react'
+import { ArrowRight, CreditCard, FileText, LogOut } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import { customerNavItems } from '../lib/navigation'
 
 export function CustomerLayout() {
+  const { profile, signOut } = useAuth()
+
+  const logout = async () => {
+    await signOut()
+    window.location.assign('/login')
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(163,140,255,0.15),transparent_30%),linear-gradient(180deg,#f8f5ff_0%,#f5f7ff_100%)] text-slate-900">
       <header className="sticky top-0 z-20 border-b border-violet-100 bg-white/85 backdrop-blur-xl">
@@ -40,15 +48,23 @@ export function CustomerLayout() {
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-sm text-violet-700 sm:flex">
               <CreditCard className="h-4 w-4" />
-              Pro Plan
+              {profile?.company_name || 'Pro Plan'}
             </div>
             <Link
-              to="/admin/dashboard"
+              to="/customer/subscriptions"
               className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700"
             >
-              Open dashboard
+              My account
               <ArrowRight className="h-4 w-4" />
             </Link>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-violet-200 hover:text-violet-700"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
           </div>
         </div>
       </header>
