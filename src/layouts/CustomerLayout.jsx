@@ -1,10 +1,10 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { ArrowRight, CreditCard, FileText, LogOut } from 'lucide-react'
+import { ArrowRight, CreditCard, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { customerNavItems } from '../lib/navigation'
 
 export function CustomerLayout() {
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, isDemoMode } = useAuth()
 
   const logout = async () => {
     await signOut()
@@ -13,6 +13,11 @@ export function CustomerLayout() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(163,140,255,0.15),transparent_30%),linear-gradient(180deg,#f8f5ff_0%,#f5f7ff_100%)] text-slate-900">
+      {isDemoMode ? (
+        <div className="border-b border-amber-200 bg-amber-500 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.24em] text-white">
+          DEMO MODE — SAMPLE DATA
+        </div>
+      ) : null}
       <header className="sticky top-0 z-20 border-b border-violet-100 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">

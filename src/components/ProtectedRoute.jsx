@@ -3,11 +3,15 @@ import { useAuth } from '../context/AuthContext'
 import { DataState } from './DataState'
 
 export function ProtectedRoute({ children, allowedRoles = [], redirectTo = '/login' }) {
-  const { profile, session, loading } = useAuth()
+  const { profile, session, loading, recoveryMode } = useAuth()
   const location = useLocation()
 
   if (loading) {
     return <DataState loading />
+  }
+
+  if (recoveryMode && location.pathname !== '/reset-password') {
+    return <Navigate to="/reset-password" replace state={{ from: location.pathname }} />
   }
 
   if (!session) {

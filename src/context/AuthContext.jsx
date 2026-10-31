@@ -7,6 +7,39 @@ export const ROLES = {
   CUSTOMER: 'customer',
 }
 
+const DEMO_STORAGE_KEY = 'brightloop-demo-session'
+const DEMO_ENABLED = import.meta.env.VITE_ENABLE_DEMO_MODE === 'true'
+
+const DEMO_USERS = {
+  admin: {
+    id: 'demo-admin-1',
+    email: 'admin@brightloop.demo',
+    role: ROLES.ADMIN,
+    first_name: 'Alicia',
+    last_name: 'Kim',
+    company_name: 'Brightloop Ops',
+    demoCustomerId: null,
+  },
+  staff: {
+    id: 'demo-staff-1',
+    email: 'staff@brightloop.demo',
+    role: ROLES.STAFF,
+    first_name: 'Jordan',
+    last_name: 'Lee',
+    company_name: 'Brightloop Staff',
+    demoCustomerId: null,
+  },
+  customer: {
+    id: 'demo-customer-1',
+    email: 'customer@brightloop.demo',
+    role: ROLES.CUSTOMER,
+    first_name: 'Maya',
+    last_name: 'Patel',
+    company_name: 'Northstar Labs',
+    demoCustomerId: 'cust-northstar',
+  },
+}
+
 const AuthContext = createContext(null)
 
 function validatePassword(password) {
@@ -40,35 +73,37 @@ async function ensureProfile(user) {
     throw error
   }
 
-  if (data) {
-    return data
+  if (!data) {
+    throw new Error('Profile not found. Please contact support to complete account setup.')
   }
 
-  const role = ROLES.CUSTOMER
-  const firstName = user.user_metadata?.first_name || ''
-  const lastName = user.user_metadata?.last_name || ''
-  const companyName = user.user_metadata?.company_name || ''
+  return data
+}
 
-  const { data: inserted, error: insertError } = await supabase
-    .from('profiles')
-    .insert([
-      {
-        id: user.id,
-        email: user.email,
-        first_name: firstName,
-        last_name: lastName,
-        company_name: companyName,
-        role,
-      },
-    ])
-    .select()
-    .single()
-
-  if (insertError) {
-    throw insertError
+function readDemoSession() {
+  if (typeof window === 'undefined') {
+    return null
   }
 
-  return inserted
+  try {
+    const raw = window.localStorage.getItem(DEMO_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function writeDemoSession(sessionData) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (sessionData) {
+    window.localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(sessionData))
+    return
+  }
+
+  window.localStorage.removeItem(DEMO_STORAGE_KEY)
 }
 
 export function AuthProvider({ children }) {
@@ -76,6 +111,8 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState('')
+  const [recoveryMode, setRecoveryMode] = useState(false)
+  const [isDemoMode, setIsDemoMode] = useState(false)
 
   const refreshProfile = useCallback(async (user) => {
     if (!user) {
@@ -88,10 +125,49 @@ export function AuthProvider({ children }) {
     return nextProfile
   }, [])
 
+  const restoreDemoSession = useCallback(() => {
+    if (!DEMO_ENABLED) {
+      return null
+    }
+
+    const storedSession = readDemoSession()
+    if (!storedSession) {
+      return null
+    }
+
+    const nextProfile = {
+      ...storedSession.profile,
+      isDemo: true,
+    }
+
+    setSession({
+      access_token: 'demo-access-token',
+      user: {
+        id: storedSession.profile.id,
+        email: storedSession.profile.email,
+        role: storedSession.profile.role,
+      },
+    })
+    setProfile(nextProfile)
+    setIsDemoMode(true)
+    return nextProfile
+  }, [])
+
   useEffect(() => {
     let isMounted = true
 
     const initialize = async () => {
+      if (!supabase) {
+        setSession(null)
+        setProfile(null)
+        setAuthError(DEMO_ENABLED ? '' : 'Supabase is not configured in this environment.')
+        if (DEMO_ENABLED) {
+          restoreDemoSession()
+        }
+        setLoading(false)
+        return
+      }
+
       const { data: { session: currentSession }, error } = await supabase.auth.getSession()
 
       if (!isMounted) {
@@ -102,14 +178,19 @@ export function AuthProvider({ children }) {
         setAuthError(error.message)
       }
 
-      setSession(currentSession)
-
       if (currentSession?.user) {
+        setSession(currentSession)
         try {
           await refreshProfile(currentSession.user)
         } catch (error) {
           setAuthError(error.message)
           setProfile(null)
+        }
+      } else {
+        setSession(null)
+        setProfile(null)
+        if (DEMO_ENABLED) {
+          restoreDemoSession()
         }
       }
 
@@ -118,13 +199,25 @@ export function AuthProvider({ children }) {
 
     initialize()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    if (!supabase) {
+      return () => {
+        isMounted = false
+      }
+    }
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!isMounted) {
         return
       }
 
       setSession(nextSession)
       setAuthError('')
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true)
+      } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'SIGNED_OUT') {
+        setRecoveryMode(false)
+      }
 
       if (nextSession?.user) {
         try {
@@ -134,6 +227,7 @@ export function AuthProvider({ children }) {
         }
       } else {
         setProfile(null)
+        setIsDemoMode(false)
       }
 
       setLoading(false)
@@ -143,10 +237,14 @@ export function AuthProvider({ children }) {
       isMounted = false
       authListener.subscription.unsubscribe()
     }
-  }, [refreshProfile])
+  }, [refreshProfile, restoreDemoSession])
 
   const signIn = useCallback(async ({ email, password }) => {
     setAuthError('')
+
+    if (!supabase) {
+      return { ok: false, error: 'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable live auth.' }
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
@@ -158,7 +256,9 @@ export function AuthProvider({ children }) {
       const nextProfile = await refreshProfile(data.user)
       return { ok: true, user: data.user, role: nextProfile?.role }
     } catch (error) {
-      return { ok: false, error: error.message }
+      const message = error?.message || 'Profile not found. Please contact support to complete account setup.'
+      setAuthError(message)
+      return { ok: false, error: message }
     }
   }, [refreshProfile])
 
@@ -169,6 +269,10 @@ export function AuthProvider({ children }) {
     }
 
     setAuthError('')
+
+    if (!supabase) {
+      return { ok: false, error: 'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable live signup.' }
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -195,6 +299,20 @@ export function AuthProvider({ children }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    if (isDemoMode) {
+      setSession(null)
+      setProfile(null)
+      setIsDemoMode(false)
+      writeDemoSession(null)
+      return
+    }
+
+    if (!supabase) {
+      setSession(null)
+      setProfile(null)
+      return
+    }
+
     const { error } = await supabase.auth.signOut()
     if (error) {
       throw error
@@ -202,11 +320,54 @@ export function AuthProvider({ children }) {
 
     setSession(null)
     setProfile(null)
+  }, [isDemoMode])
+
+  const loginDemo = useCallback((role) => {
+    if (!DEMO_ENABLED) {
+      return { ok: false, error: 'Demo mode is disabled. Set VITE_ENABLE_DEMO_MODE=true in your local environment.' }
+    }
+
+    const user = DEMO_USERS[role]
+    if (!user) {
+      return { ok: false, error: 'Unknown demo role.' }
+    }
+
+    const nextProfile = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      company_name: user.company_name,
+      demoCustomerId: user.demoCustomerId,
+      isDemo: true,
+    }
+
+    const nextSession = {
+      access_token: 'demo-access-token',
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    }
+
+    setSession(nextSession)
+    setProfile(nextProfile)
+    setIsDemoMode(true)
+    setAuthError('')
+    writeDemoSession({ profile: nextProfile })
+
+    return { ok: true, user: nextSession.user, role: user.role }
   }, [])
 
   const resetPassword = useCallback(async (email) => {
+    if (!supabase) {
+      return { ok: false, error: 'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable password recovery.' }
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: `${window.location.origin}/reset-password`,
     })
 
     if (error) {
@@ -216,19 +377,28 @@ export function AuthProvider({ children }) {
     return { ok: true }
   }, [])
 
+  const clearRecovery = useCallback(() => {
+    setRecoveryMode(false)
+  }, [])
+
   const value = useMemo(
     () => ({
       session,
       profile,
       loading,
       authError,
+      recoveryMode,
+      isDemoMode,
+      demoEnabled: DEMO_ENABLED,
       signIn,
       signUp,
       signOut,
+      loginDemo,
       resetPassword,
+      clearRecovery,
       validatePassword,
     }),
-    [session, profile, loading, authError, signIn, signUp, signOut, resetPassword],
+    [session, profile, loading, authError, recoveryMode, isDemoMode, signIn, signUp, signOut, loginDemo, resetPassword, clearRecovery],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
