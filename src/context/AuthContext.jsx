@@ -44,7 +44,7 @@ async function ensureProfile(user) {
     return data
   }
 
-  const role = user.user_metadata?.role || ROLES.CUSTOMER
+  const role = ROLES.CUSTOMER
   const firstName = user.user_metadata?.first_name || ''
   const lastName = user.user_metadata?.last_name || ''
   const companyName = user.user_metadata?.company_name || ''
