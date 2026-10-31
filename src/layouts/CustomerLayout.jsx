@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { ArrowRight, CreditCard, FileText, LogOut } from 'lucide-react'
+import { ArrowRight, CreditCard, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { customerNavItems } from '../lib/navigation'
 

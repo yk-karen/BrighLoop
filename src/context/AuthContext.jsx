@@ -157,6 +157,17 @@ export function AuthProvider({ children }) {
     let isMounted = true
 
     const initialize = async () => {
+      if (!supabase) {
+        setSession(null)
+        setProfile(null)
+        setAuthError(DEMO_ENABLED ? '' : 'Supabase is not configured in this environment.')
+        if (DEMO_ENABLED) {
+          restoreDemoSession()
+        }
+        setLoading(false)
+        return
+      }
+
       const { data: { session: currentSession }, error } = await supabase.auth.getSession()
 
       if (!isMounted) {
@@ -187,6 +198,12 @@ export function AuthProvider({ children }) {
     }
 
     initialize()
+
+    if (!supabase) {
+      return () => {
+        isMounted = false
+      }
+    }
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!isMounted) {
@@ -225,6 +242,10 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async ({ email, password }) => {
     setAuthError('')
 
+    if (!supabase) {
+      return { ok: false, error: 'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable live auth.' }
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
@@ -248,6 +269,10 @@ export function AuthProvider({ children }) {
     }
 
     setAuthError('')
+
+    if (!supabase) {
+      return { ok: false, error: 'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable live signup.' }
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -279,6 +304,12 @@ export function AuthProvider({ children }) {
       setProfile(null)
       setIsDemoMode(false)
       writeDemoSession(null)
+      return
+    }
+
+    if (!supabase) {
+      setSession(null)
+      setProfile(null)
       return
     }
 
@@ -331,6 +362,10 @@ export function AuthProvider({ children }) {
   }, [])
 
   const resetPassword = useCallback(async (email) => {
+    if (!supabase) {
+      return { ok: false, error: 'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable password recovery.' }
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     })
