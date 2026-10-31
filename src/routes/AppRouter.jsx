@@ -3,6 +3,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute'
 import StaffManagementPage from '../features/admin/StaffManagementPage'
 import LoginPage from '../features/access/LoginPage'
 import ForgotPasswordPage from '../features/access/ForgotPasswordPage'
+import ResetPasswordPage from '../features/access/ResetPasswordPage'
 import SignupPage from '../features/access/SignupPage'
 import DashboardPage from '../features/finance/DashboardPage'
 import MyInvoicesPage from '../features/customer/MyInvoicesPage'
@@ -24,6 +25,7 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route
         path="/customer"

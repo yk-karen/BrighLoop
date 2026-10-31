@@ -3,7 +3,17 @@
 
 create extension if not exists pgcrypto;
 
-create type public.app_role as enum ('admin', 'staff', 'customer');
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where n.nspname = 'public' and t.typname = 'app_role'
+  ) then
+    create type public.app_role as enum ('admin', 'staff', 'customer');
+  end if;
+end $$;
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -16,32 +26,7 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.subscriptions (
-  id uuid primary key default gen_random_uuid(),
-  profile_id uuid not null references public.profiles(id) on delete cascade,
-  plan_name text not null default 'Brightloop Pro',
-  status text not null default 'active',
-  billing_cycle text not null default 'monthly',
-  amount numeric(12,2) not null default 149.00,
-  renewal_date date,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists public.invoices (
-  id uuid primary key default gen_random_uuid(),
-  profile_id uuid not null references public.profiles(id) on delete cascade,
-  invoice_number text not null,
-  status text not null default 'paid',
-  issue_date date,
-  amount numeric(12,2) not null default 0,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
 alter table public.profiles enable row level security;
-alter table public.subscriptions enable row level security;
-alter table public.invoices enable row level security;
 
 -- Ordinary users only get access to their own non-role profile fields. Role changes are handled
 -- by a dedicated service-role-only backend function, not by table grants or custom bypasses.
@@ -92,10 +77,6 @@ begin
     raise exception 'p_user_id is required.';
   end if;
 
-  if p_new_role not in ('admin', 'staff', 'customer') then
-    raise exception 'Unsupported role assignment.';
-  end if;
-
   update public.profiles
   set role = p_new_role,
       updated_at = now()
@@ -133,81 +114,6 @@ using (
   or public.current_user_has_role('staff')
 );
 
-create policy "subscriptions_customer_select"
-on public.subscriptions
-for select
-using (
-  profile_id = auth.uid()
-  or exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'staff')
-  )
-);
-
-create policy "subscriptions_admin_staff_insert"
-on public.subscriptions
-for insert with check (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'staff')
-  )
-);
-
--- Customers are read-only for billing data. Trusted admin/staff operations must handle
--- subscription and invoice modifications as part of the eventual billing authorization design.
-
-create policy "subscriptions_admin_staff_update"
-on public.subscriptions
-for update
-using (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'staff')
-  )
-)
-with check (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'staff')
-  )
-);
-
-create policy "invoices_customer_select"
-on public.invoices
-for select
-using (
-  profile_id = auth.uid()
-  or exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'staff')
-  )
-);
-
-create policy "invoices_admin_staff_insert"
-on public.invoices
-for insert with check (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'staff')
-  )
-);
-
-create policy "invoices_admin_staff_update"
-on public.invoices
-for update
-using (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'staff')
-  )
-)
-with check (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'staff')
-  )
-);
-
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -229,8 +135,9 @@ begin
     new.raw_user_meta_data->>'first_name',
     new.raw_user_meta_data->>'last_name',
     new.raw_user_meta_data->>'company_name',
-    'customer'
-  );
+    'customer'::public.app_role
+  )
+  on conflict (id) do nothing;
 
   return new;
 end;
@@ -247,6 +154,17 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
 
+insert into public.profiles (id, email, first_name, last_name, company_name, role)
+select
+  u.id,
+  u.email,
+  coalesce(u.raw_user_meta_data->>'first_name', ''),
+  coalesce(u.raw_user_meta_data->>'last_name', ''),
+  coalesce(u.raw_user_meta_data->>'company_name', ''),
+  'customer'::public.app_role
+from auth.users u
+left join public.profiles p on p.id = u.id
+where p.id is null
+on conflict (id) do nothing;
+
 create index if not exists idx_profiles_email on public.profiles(email);
-create index if not exists idx_subscriptions_profile_id on public.subscriptions(profile_id);
-create index if not exists idx_invoices_profile_id on public.invoices(profile_id);

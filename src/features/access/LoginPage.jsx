@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { signIn } = useAuth()
+  const { signIn, loginDemo, demoEnabled, isDemoMode } = useAuth()
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -23,6 +23,21 @@ export default function LoginPage() {
     const result = await signIn(form)
     setLoading(false)
 
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+
+    if (result.role === 'customer') {
+      navigate('/customer/subscriptions', { replace: true })
+      return
+    }
+
+    navigate('/admin/dashboard', { replace: true })
+  }
+
+  const handleDemoLogin = (role) => {
+    const result = loginDemo(role)
     if (!result.ok) {
       setError(result.error)
       return
@@ -64,6 +79,12 @@ export default function LoginPage() {
 
         <div className="flex items-center justify-center p-6 sm:p-10">
           <div className="w-full max-w-md">
+            {demoEnabled ? (
+              <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
+                DEMO MODE — SAMPLE DATA
+              </div>
+            ) : null}
+
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-500">
               Welcome back
             </p>
@@ -71,6 +92,38 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-slate-600">
               Pick up where your revenue operations left off.
             </p>
+
+            {demoEnabled ? (
+              <div className="mt-6 space-y-3 rounded-[24px] border border-violet-100 bg-violet-50/60 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">Demo access</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin('admin')}
+                    className="rounded-2xl border border-violet-200 bg-white px-3 py-2 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100"
+                  >
+                    Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin('staff')}
+                    className="rounded-2xl border border-violet-200 bg-white px-3 py-2 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100"
+                  >
+                    Staff
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin('customer')}
+                    className="rounded-2xl border border-violet-200 bg-white px-3 py-2 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100"
+                  >
+                    Customer
+                  </button>
+                </div>
+                <p className="text-[11px] text-violet-700/80">
+                  Local demo only. Demo sessions are never treated as live Supabase credentials.
+                </p>
+              </div>
+            ) : null}
 
             <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
               <div>
@@ -133,6 +186,12 @@ export default function LoginPage() {
                 Create one
               </Link>
             </p>
+
+            {isDemoMode ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs uppercase tracking-[0.2em] text-emerald-700">
+                Demo session active
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

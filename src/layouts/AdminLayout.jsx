@@ -7,7 +7,7 @@ import { adminNavItems } from '../lib/navigation'
 
 export function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false)
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, isDemoMode } = useAuth()
 
   const logout = async () => {
     await signOut()
@@ -16,6 +16,11 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,191,163,0.15),transparent_30%),linear-gradient(180deg,#f7f5ff_0%,#f4f7ff_100%)] text-slate-900">
+      {isDemoMode ? (
+        <div className="border-b border-amber-200 bg-amber-500 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.24em] text-white">
+          DEMO MODE — SAMPLE DATA
+        </div>
+      ) : null}
       <div className="flex min-h-screen">
         <aside
           className={[
