@@ -1,9 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { ProtectedRoute } from '../components/ProtectedRoute'
+import StaffManagementPage from '../features/admin/StaffManagementPage'
 import LoginPage from '../features/access/LoginPage'
+import ForgotPasswordPage from '../features/access/ForgotPasswordPage'
 import SignupPage from '../features/access/SignupPage'
 import DashboardPage from '../features/finance/DashboardPage'
-import CustomerInvoicesPage from '../features/billing/CustomerInvoicesPage'
-import CustomerSubscriptionsPage from '../features/billing/CustomerSubscriptionsPage'
+import MyInvoicesPage from '../features/customer/MyInvoicesPage'
+import MySubscriptionsPage from '../features/customer/MySubscriptionsPage'
 import InvoicesPage from '../features/billing/InvoicesPage'
 import PaymentsPage from '../features/billing/PaymentsPage'
 import SubscriptionsPage from '../features/billing/SubscriptionsPage'
@@ -17,17 +20,36 @@ import { CustomerLayout } from '../layouts/CustomerLayout'
 export function AppRouter() {
   return (
     <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-      <Route path="/customer" element={<CustomerLayout />}>
-        <Route path="subscriptions" element={<CustomerSubscriptionsPage />} />
-        <Route path="invoices" element={<CustomerInvoicesPage />} />
+      <Route
+        path="/customer"
+        element={
+          <ProtectedRoute allowedRoles={['customer']}>
+            <CustomerLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="subscriptions" element={<MySubscriptionsPage />} />
+        <Route path="my-subscriptions" element={<MySubscriptionsPage />} />
+        <Route path="invoices" element={<MyInvoicesPage />} />
+        <Route path="my-invoices" element={<MyInvoicesPage />} />
         <Route index element={<Navigate to="/customer/subscriptions" replace />} />
       </Route>
 
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'staff']}>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="staff" element={<ProtectedRoute allowedRoles={['admin']}><StaffManagementPage /></ProtectedRoute>} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="plans" element={<PlansPage />} />
         <Route path="taxes" element={<TaxesPage />} />
