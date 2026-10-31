@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { ArrowRight, CreditCard, FileText } from 'lucide-react'
+import { ArrowRight, CreditCard } from 'lucide-react'
 import { customerNavItems } from '../lib/navigation'
 
 export function CustomerLayout() {

@@ -26,6 +26,11 @@ This repository currently includes:
 - protected routes with role checks
 - customer-only subscription and invoice views
 - profile table and RLS migration skeleton for access control
+- subscription creation with transactional first-invoice generation
+- subscription lifecycle status transitions and quotation templates
+- server-side tax/discount calculations and recurring invoice generation
+- invoice duplicate prevention using a subscription-period unique index
+- local-first billing demo mode with browser persistence when Supabase is not configured
 
 ### Verified locally
 - Production build passes with npm run build
@@ -57,6 +62,20 @@ npm run build
 npm run preview
 ```
 
+## Billing migration
+
+The billing module is backed by `supabase/migrations/20261031160900_billing.sql`.
+Apply it through the Supabase SQL editor or Supabase CLI before opening the billing
+routes. It creates plans, tax rates, discounts, subscriptions, invoices, invoice
+items, and quotation templates, enables row-level security, and exposes:
+
+- `create_subscription_with_invoice(...)` for an atomic subscription and first invoice
+- `generate_recurring_invoices(...)` for a scheduled recurring billing job
+
+The recurring function is intentionally database-side so a scheduled Supabase job
+cannot create duplicate invoices if it is retried. Staff access is determined by
+the authenticated JWT `app_metadata.role` value (`admin` or `staff`).
+
 ## Environment variables
 Create a local environment file based on the project convention:
 
@@ -70,6 +89,8 @@ Important notes:
 - Frontend code must never include service-role secrets.
 - The trusted admin staff creation flow should be handled by a secure backend endpoint.
 - If these values are not configured, auth and database-backed access will not work in the browser.
+- Billing screens still work without these values using the built-in demo dataset and browser `localStorage`.
+- Remove the `brightloop.billing.v1` localStorage key to reset the demo billing data.
 
 ## Directory structure
 ```text
